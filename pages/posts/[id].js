@@ -1,20 +1,45 @@
 import Head from "next/head"
-import Date from "../../components/date"
+import { FormatDate as DateComponent, today } from "../../components/date"
 import Layout from "../../components/layout"
 import { getAllPostIds, getPostData } from "../../lib/posts"
 import utilStyles from "../../styles/utils.module.css"
 import { Slate, Editable, withReact } from "slate-react"
-import Prism from "prismjs"
 import { useCallback, useMemo, useState } from "react"
-import { Text, createEditor } from "slate"
+import { createEditor } from "slate"
 import { withHistory } from "slate-history"
-import { css } from "@emotion/css"
-
-// eslint-disable-next-line
-;Prism.languages.markdown=Prism.languages.extend("markup",{}),Prism.languages.insertBefore("markdown","prolog",{blockquote:{pattern:/^>(?:[\t ]*>)*/m,alias:"punctuation"},code:[{pattern:/^(?: {4}|\t).+/m,alias:"keyword"},{pattern:/``.+?``|`[^`\n]+`/,alias:"keyword"}],title:[{pattern:/\w+.*(?:\r?\n|\r)(?:==+|--+)/,alias:"important",inside:{punctuation:/==+$|--+$/}},{pattern:/(^\s*)#+.+/m,lookbehind:!0,alias:"important",inside:{punctuation:/^#+|#+$/}}],hr:{pattern:/(^\s*)([*-])([\t ]*\2){2,}(?=\s*$)/m,lookbehind:!0,alias:"punctuation"},list:{pattern:/(^\s*)(?:[*+-]|\d+\.)(?=[\t ].)/m,lookbehind:!0,alias:"punctuation"},"url-reference":{pattern:/!?\[[^\]]+\]:[\t ]+(?:\S+|<(?:\\.|[^>\\])+>)(?:[\t ]+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\)))?/,inside:{variable:{pattern:/^(!?\[)[^\]]+/,lookbehind:!0},string:/(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\))$/,punctuation:/^[\[\]!:]|[<>]/},alias:"url"},bold:{pattern:/(^|[^\\])(\*\*|__)(?:(?:\r?\n|\r)(?!\r?\n|\r)|.)+?\2/,lookbehind:!0,inside:{punctuation:/^\*\*|^__|\*\*$|__$/}},italic:{pattern:/(^|[^\\])([*_])(?:(?:\r?\n|\r)(?!\r?\n|\r)|.)+?\2/,lookbehind:!0,inside:{punctuation:/^[*_]|[*_]$/}},url:{pattern:/!?\[[^\]]+\](?:\([^\s)]+(?:[\t ]+"(?:\\.|[^"\\])*")?\)| ?\[[^\]\n]*\])/,inside:{variable:{pattern:/(!?\[)[^\]]+(?=\]$)/,lookbehind:!0},string:{pattern:/"(?:\\.|[^"\\])*"(?=\)$)/}}}}),Prism.languages.markdown.bold.inside.url=Prism.util.clone(Prism.languages.markdown.url),Prism.languages.markdown.italic.inside.url=Prism.util.clone(Prism.languages.markdown.url),Prism.languages.markdown.bold.inside.italic=Prism.util.clone(Prism.languages.markdown.italic),Prism.languages.markdown.italic.inside.bold=Prism.util.clone(Prism.languages.markdown.bold); // prettier-ignore
+import {
+  decorateCallback,
+  DefaultElement,
+  Leaf,
+  withShortcuts,
+} from "../../lib/slate_editor"
+import { useRouter } from "next/router"
 
 export async function getStaticProps({ params }) {
-  const postData = await getPostData(params.id)
+  let postData
+  if (params.id === "new") {
+    postData = {
+      id: "new",
+      slateValue: [
+        {
+          type: "paragraph",
+          children: [
+            {
+              text: "",
+            },
+          ],
+        },
+      ],
+      title: "",
+      date: today(),
+    }
+    return {
+      props: {
+        postData,
+      },
+    }
+  }
+  postData = await getPostData(params.id)
   return {
     props: {
       postData,
@@ -30,150 +55,126 @@ export async function getStaticPaths() {
   }
 }
 
-function decorateCallback(node, path) {
-  const ranges = []
-
-  if (!Text.isText(node)) {
-    return ranges
-  }
-
-  const getLength = (token) => {
-    if (typeof token === "string") {
-      return token.length
-    } else if (typeof token.content === "string") {
-      return token.content.length
-    } else {
-      return token.content.reduce((l, t) => l + getLength(t), 0)
-    }
-  }
-
-  const tokens = Prism.tokenize(node.text, Prism.languages.markdown)
-  let start = 0
-
-  for (const token of tokens) {
-    const length = getLength(token)
-    const end = start + length
-
-    if (typeof token !== "string") {
-      ranges.push({
-        [token.type]: true,
-        anchor: { path, offset: start },
-        focus: { path, offset: end },
-      })
-    }
-
-    start = end
-  }
-
-  return ranges
+const loadFromLocalStore = (postData) => {
+  return (
+    (typeof window !== "undefined" &&
+      postData.id !== "new" &&
+      JSON.parse(window.localStorage.getItem(`${postData.id}-content`))) ||
+    postData.slateValue
+  )
 }
 
 const Post = ({ postData }) => {
-  const [value, setValue] = useState(initialValue(postData))
-  const renderLeaf = useCallback((props) => <Leaf {...props} />, [])
-  const editor = useMemo(() => withHistory(withReact(createEditor())), [])
+  const [post, setPost] = useState(postData)
+  const [newPostId, setNewPostId] = useState(post.id)
+  const [value, setValue] = useState(loadFromLocalStore(post))
+  const [inEditMode, setInEditMode] = useState(post.id === "new")
+  const editor = useMemo(
+    () => withShortcuts(withReact(withHistory(createEditor()))),
+    []
+  )
   const decorate = useCallback(([node, path]) => decorateCallback(node, path))
-  // Add the initial value when setting up our state.
+  const renderElement = useCallback(
+    (props) => <DefaultElement {...props} />,
+    []
+  )
+  const renderLeaf = useCallback((props) => <Leaf {...props} />, [])
+  const router = useRouter()
+
+  const editButtonCallback = () => {
+    if (inEditMode) {
+      if (post.id === "new" && post.title === "") {
+        alert("add a title for the post")
+        return
+      }
+      fetch(`/api/posts/${post.id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...post, id: newPostId, slateValue: value }),
+      })
+      router.push("/")
+    }
+    setInEditMode(!inEditMode)
+  }
 
   return (
     <Layout>
-      <Head>{postData.title}</Head>
+      <Head>{`azohc - ${post.title}`}</Head>
       <article>
-        <h1 className={utilStyles.headingXl}>{postData.title}</h1>
-        <div className={utilStyles.lightText}>
-          <Date dateString={postData.date} />
-        </div>
-        <div dangerouslySetInnerHTML={{ __html: postData.contentHtml }} />
-        {/* <input
-          type="checkbox"
-          value={editable}
-          onClick={() => setEditable(!editable)}
+        {post.id === "new" ? (
+          <>
+            <input
+              style={{ textAlign: "center" }}
+              type="text"
+              value={newPostId}
+              placeholder="post id"
+              onChange={(event) => {
+                setNewPostId(event.target.value)
+              }}
+            />
+            <br />
+            <input
+              style={{ textAlign: "center" }}
+              type="text"
+              value={post.title}
+              placeholder="post title"
+              onChange={(event) =>
+                setPost({ ...post, title: event.target.value })
+              }
+            />
+          </>
+        ) : (
+          <h1 className={utilStyles.headingXl}>{post.title}</h1>
+        )}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
         >
-          edit post
-        </input> */}
+          <div className={utilStyles.lightText}>
+            <DateComponent dateString={post.date} />
+          </div>
+          <br />
+          <input
+            type="button"
+            value={inEditMode ? "save" : "edit"}
+            onClick={editButtonCallback}
+          />
+        </div>
       </article>
       <Slate
         editor={editor}
         value={value}
-        onChange={(newValue) => setValue(newValue)}
+        onChange={(value) => {
+          setValue(value)
+
+          const isAstChange = editor.operations.some(
+            (op) => "set_selection" !== op.type
+          )
+          if (isAstChange) {
+            // Save the value to Local Storage.
+            const content = JSON.stringify(value)
+            if (typeof window !== "undefined") {
+              window.localStorage.setItem(`${post.id}-content`, content)
+            }
+          }
+        }}
       >
         <Editable
+          readOnly={!inEditMode}
           decorate={decorate}
           renderLeaf={renderLeaf}
-          placeholder="write some md here, big boi"
+          placeholder="write your post here"
+          renderElement={renderElement}
         />
       </Slate>
     </Layout>
   )
-}
-
-const Leaf = ({ attributes, children, leaf }) => {
-  return (
-    <span
-      {...attributes}
-      className={css`
-        font-weight: ${leaf.bold && "bold"};
-        font-style: ${leaf.italic && "italic"};
-        text-decoration: ${leaf.underlined && "underline"};
-        ${leaf.title &&
-        css`
-          display: inline-block;
-          font-weight: bold;
-          font-size: 20px;
-          margin: 20px 0 10px 0;
-        `}
-        ${leaf.list &&
-        css`
-          padding-left: 10px;
-          font-size: 20px;
-          line-height: 10px;
-        `}
-        ${leaf.hr &&
-        css`
-          display: block;
-          text-align: center;
-          border-bottom: 2px solid #ddd;
-        `}
-        ${leaf.blockquote &&
-        css`
-          display: inline-block;
-          border-left: 2px solid #ddd;
-          padding-left: 10px;
-          color: #aaa;
-          font-style: italic;
-        `}
-        ${leaf.code &&
-        css`
-          font-family: monospace;
-          background-color: #eee;
-          padding: 3px;
-        `}
-      `}
-    >
-      {children}
-    </span>
-  )
-}
-
-function initialValue(postData) {
-  return [
-    {
-      type: "paragraph",
-      children: [
-        {
-          text: "Slate is flexible enough to add **decorations** that can format text based on its content. For example, this editor has **Markdown** preview decorations on it, to make it _dead_ simple to make an editor with built-in Markdown previewing.",
-        },
-      ],
-    },
-    {
-      type: "paragraph",
-      children: [{ text: "## Try it out!" }],
-    },
-    {
-      type: "paragraph",
-      children: [{ text: "Try it out for yourself!" }],
-    },
-  ]
 }
 
 export default Post

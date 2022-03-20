@@ -5,17 +5,14 @@ import utilStyles from "../styles/utils.module.css"
 import Link from "next/link"
 
 const name = "azohc"
-export const siteTitle = "Next.js Sample Website"
+export const siteTitle = "azohcs blog"
 
 export default function Layout({ children, home }) {
   return (
     <div className={styles.container}>
       <Head>
         <link rel="icon" href="/favicon.ico" />
-        <meta
-          name="description"
-          content="Learn how to build a personal website using Next.js"
-        />
+        <meta name="description" content="azohc blog" />
         <meta
           property="og:image"
           content={`https://og-image.vercel.app/${encodeURI(
@@ -33,8 +30,9 @@ export default function Layout({ children, home }) {
               src="/images/profile.jpg"
               className={utilStyles.borderCircle}
               height={359}
-              width={444}
+              width={359}
               alt={name}
+              layout="fixed"
             />
             <h1 className={utilStyles.heading2Xl}>{name}</h1>
           </>
@@ -60,11 +58,11 @@ export default function Layout({ children, home }) {
           </>
         )}
       </header>
-      <main>{children}</main>
+      <main className={styles.childrenContainer}>{children}</main>
       {!home && (
         <div className={styles.backToHome}>
           <Link href="/">
-            <a>← Back to home</a>
+            <a>←</a>
           </Link>
         </div>
       )}
