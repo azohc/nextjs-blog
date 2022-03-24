@@ -4,7 +4,7 @@
   margin: 3rem auto 6rem;
 }
 
-.header,
+.postHeader,
 .childrenContainer {
   display: flex;
   flex-direction: column;
