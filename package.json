@@ -17,7 +17,6 @@
     "remark-html": "^15.0.1",
     "slate": "^0.73.0",
     "slate-history": "^0.66.0",
-    "slate-react": "^0.73.0",
-    "swr": "^1.2.2"
+    "slate-react": "^0.73.0"
   }
 }
