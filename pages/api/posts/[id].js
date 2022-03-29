@@ -1,4 +1,4 @@
-import { savePostData } from "../../../lib/posts"
+import { savePostData } from "@/lib/posts"
 
 export default function handler(req, res) {
   if (req.method === "POST") {
