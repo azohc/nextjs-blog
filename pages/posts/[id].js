@@ -5,15 +5,18 @@ import { getAllPostIds, getPost } from "@/lib/posts"
 import utilStyles from "@/styles/utils.module.css"
 import { Slate, Editable, withReact } from "slate-react"
 import { useCallback, useMemo, useState } from "react"
-import { createEditor } from "slate"
+import { createEditor, Range, Transforms } from "slate"
 import { withHistory } from "slate-history"
 import {
   decorateCallback,
   DefaultElement,
+  HoveringToolbar,
   Leaf,
+  withInlines,
   withShortcuts,
 } from "../../lib/slate_editor"
 import { useRouter } from "next/router"
+import { isKeyHotkey } from "is-hotkey"
 
 export async function getStaticProps({ params }) {
   let post
@@ -64,12 +67,13 @@ const loadFromLocalStore = (post) => {
 }
 
 const Post = ({ postProp }) => {
+  // TODO increment views with react-visibility-sensor when backlink to home enters viewport
   const [post, setPost] = useState(postProp)
   const [newPostId, setNewPostId] = useState(postProp.id)
   const [value, setValue] = useState(loadFromLocalStore(post))
   const [inEditMode, setInEditMode] = useState(post.id === "new")
   const editor = useMemo(
-    () => withShortcuts(withReact(withHistory(createEditor()))),
+    () => withShortcuts(withInlines(withReact(withHistory(createEditor())))),
     []
   )
   const decorate = useCallback(([node, path]) => decorateCallback(node, path))
@@ -79,7 +83,29 @@ const Post = ({ postProp }) => {
   )
   const renderLeaf = useCallback((props) => <Leaf {...props} />, [])
   const router = useRouter()
+  const onKeyDown = (event) => {
+    const { selection } = editor
 
+    // Default left/right behavior is unit:'character'.
+    // This fails to distinguish between two cursor positions, such as
+    // <inline>foo<cursor/></inline> vs <inline>foo</inline><cursor/>.
+    // Here we modify the behavior to unit:'offset'.
+    // This lets the user step into and out of the inline without stepping over characters.
+    // You may wish to customize this further to only use unit:'offset' in specific cases.
+    if (selection && Range.isCollapsed(selection)) {
+      const { nativeEvent } = event
+      if (isKeyHotkey("left", nativeEvent)) {
+        event.preventDefault()
+        Transforms.move(editor, { unit: "offset", reverse: true })
+        return
+      }
+      if (isKeyHotkey("right", nativeEvent)) {
+        event.preventDefault()
+        Transforms.move(editor, { unit: "offset" })
+        return
+      }
+    }
+  }
   const editButtonCallback = () => {
     if (inEditMode) {
       if (post.id === "new" && post.title === "") {
@@ -93,7 +119,7 @@ const Post = ({ postProp }) => {
         },
         body: JSON.stringify({ ...post, id: newPostId, slateValue: value }),
       })
-      router.push("/")
+      router.push(post.id === "new" ? "/" : `/posts/${post.id}`)
     }
     setInEditMode(!inEditMode)
   }
@@ -167,12 +193,14 @@ const Post = ({ postProp }) => {
           }
         }}
       >
+        <HoveringToolbar />
         <Editable
           readOnly={!inEditMode}
           decorate={decorate}
           renderLeaf={renderLeaf}
           placeholder="write your post here"
           renderElement={renderElement}
+          onKeyDown={onKeyDown}
         />
       </Slate>
     </Layout>
