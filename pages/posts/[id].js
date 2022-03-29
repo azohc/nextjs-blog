@@ -1,7 +1,7 @@
 import Head from "next/head"
 import { FormatDate as DateComponent, today } from "@/components/date"
 import Layout from "@/components/layout"
-import { getAllPostIds, getPostData } from "@/lib/posts"
+import { getAllPostIds, getPost } from "@/lib/posts"
 import utilStyles from "@/styles/utils.module.css"
 import { Slate, Editable, withReact } from "slate-react"
 import { useCallback, useMemo, useState } from "react"
@@ -16,33 +16,32 @@ import {
 import { useRouter } from "next/router"
 
 export async function getStaticProps({ params }) {
-  let postData
+  let post
   if (params.id === "new") {
-    postData = {
-      id: "new",
-      slateValue: [
-        {
-          type: "paragraph",
-          children: [
-            {
-              text: "",
-            },
-          ],
-        },
-      ],
-      title: "",
-      date: today(),
-    }
     return {
       props: {
-        postData,
+        postProp: {
+          id: "new",
+          slateValue: [
+            {
+              type: "paragraph",
+              children: [
+                {
+                  text: "",
+                },
+              ],
+            },
+          ],
+          title: "",
+          date: today(),
+          views: 0,
+        },
       },
     }
   }
-  postData = await getPostData(params.id)
   return {
     props: {
-      postData,
+      postProp: await getPost(params.id),
     },
   }
 }
@@ -55,18 +54,18 @@ export async function getStaticPaths() {
   }
 }
 
-const loadFromLocalStore = (postData) => {
+const loadFromLocalStore = (post) => {
   return (
     (typeof window !== "undefined" &&
-      postData.id !== "new" &&
-      JSON.parse(window.localStorage.getItem(`${postData.id}-content`))) ||
-    postData.slateValue
+      post.id !== "new" &&
+      JSON.parse(window.localStorage.getItem(`${post.id}-content`))) ||
+    post.slateValue
   )
 }
 
-const Post = ({ postData }) => {
-  const [post, setPost] = useState(postData)
-  const [newPostId, setNewPostId] = useState(post.id)
+const Post = ({ postProp }) => {
+  const [post, setPost] = useState(postProp)
+  const [newPostId, setNewPostId] = useState(postProp.id)
   const [value, setValue] = useState(loadFromLocalStore(post))
   const [inEditMode, setInEditMode] = useState(post.id === "new")
   const editor = useMemo(
@@ -139,6 +138,9 @@ const Post = ({ postData }) => {
           <div className={utilStyles.lightText}>
             <DateComponent dateString={post.date} />
           </div>
+          {post.id !== "new" && (
+            <span className={utilStyles.lightText}>{post.views} views</span>
+          )}
           <br />
           <input
             type="button"

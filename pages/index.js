@@ -2,20 +2,20 @@ import Head from "next/head"
 import Layout, { siteTitle } from "@/components/layout"
 import utilStyles from "@/styles/utils.module.css"
 
-import { getSortedPostsData } from "@/lib/posts"
+import { getAllPostsSorted } from "@/lib/posts"
 import Link from "next/link"
 import { FormatDate } from "@/components/date"
 
 export async function getStaticProps() {
-  const allPostsData = getSortedPostsData()
+  const allPosts = getAllPostsSorted()
   return {
     props: {
-      allPostsData,
+      allPosts,
     },
   }
 }
 
-export default function Home({ allPostsData }) {
+export default function Home({ allPosts }) {
   return (
     <Layout home>
       <Head>
@@ -34,7 +34,7 @@ export default function Home({ allPostsData }) {
       {/* TODO change Blog -> "posts ordered newest/oldest first" 
         w/ 'newest/oldest' clickable so as to toggle with oldest*/}
       <ul className={utilStyles.list}>
-        {allPostsData.map(({ id, date, title }) => (
+        {allPosts.map(({ id, date, title, views }) => (
           <li
             className={utilStyles.listItem}
             key={id}
@@ -47,6 +47,7 @@ export default function Home({ allPostsData }) {
             <Link href={`/posts/${id}`}>
               <a>{title}</a>
             </Link>
+            <small className={utilStyles.lightText}>{views} views</small>
             <small className={utilStyles.lightText}>
               <FormatDate dateString={date} />
             </small>
