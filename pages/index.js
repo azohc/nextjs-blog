@@ -7,7 +7,7 @@ import Link from "next/link"
 import { FormatDate } from "@/components/date"
 
 export async function getStaticProps() {
-  const allPosts = getAllPostsSorted()
+  const allPosts = await getAllPostsSorted()
   return {
     props: {
       allPosts,
