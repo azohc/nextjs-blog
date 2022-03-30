@@ -1,4 +1,5 @@
 import Head from "next/head"
+import Link from "next/link"
 import { FormatDate as DateComponent, today } from "@/components/date"
 import Layout from "@/components/layout"
 import { getAllPostIds, getPost } from "@/lib/posts"
@@ -18,9 +19,9 @@ import {
 import { useRouter } from "next/router"
 import { isKeyHotkey } from "is-hotkey"
 import { canEditAndAddPosts } from "pages"
+import ReactVisibilitySensor from "react-visibility-sensor"
 
 export async function getStaticProps({ params }) {
-  let post
   if (params.id === "new") {
     return {
       props: {
@@ -71,7 +72,8 @@ const Post = ({ postProp }) => {
   // TODO increment views with react-visibility-sensor when backlink to home enters viewport
   // TODO store views in postId->int map that can be updated with api call
   const [post, setPost] = useState(postProp)
-  const [newPostId, setNewPostId] = useState(postProp.id)
+  const [postId, setPostId] = useState(postProp.id)
+  const [scrolledToBottom, setScrolledToBottom] = useState(false)
   const [value, setValue] = useState(loadFromLocalStore(post))
   const [inEditMode, setInEditMode] = useState(post.id === "new")
   const editor = useMemo(
@@ -119,7 +121,7 @@ const Post = ({ postProp }) => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ...post, id: newPostId, slateValue: value }),
+        body: JSON.stringify({ ...post, id: postId, slateValue: value }),
       })
       router.push(post.id === "new" ? "/" : `/posts/${post.id}`)
     }
@@ -135,10 +137,10 @@ const Post = ({ postProp }) => {
             <input
               style={{ textAlign: "center" }}
               type="text"
-              value={newPostId}
+              value={postId}
               placeholder="post id"
               onChange={(event) => {
-                setNewPostId(event.target.value)
+                setPostId(event.target.value)
               }}
             />
             <br />
@@ -206,6 +208,28 @@ const Post = ({ postProp }) => {
           onKeyDown={onKeyDown}
         />
       </Slate>
+
+      <ReactVisibilitySensor
+        onChange={(isVisible) => {
+          if (!scrolledToBottom && isVisible) {
+            setScrolledToBottom(isVisible)
+            setPost({ ...post, views: post.views + 1 })
+            fetch(`/api/views/${postId}`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ id: postId, views: post.views + 1 }),
+            })
+          }
+        }}
+      >
+        <div>
+          <Link href="/">
+            <a>←</a>
+          </Link>
+        </div>
+      </ReactVisibilitySensor>
     </Layout>
   )
 }

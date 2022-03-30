@@ -20,9 +20,3 @@
   width: -moz-available; /* WebKit-based browsers will ignore this. */
   width: -webkit-fill-available; /* Mozilla-based browsers will ignore this. */
 }
-
-.backToHome {
-  margin: 3rem 0 0;
-  display: flex;
-  justify-content: space-around;
-}
