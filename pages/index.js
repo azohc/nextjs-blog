@@ -14,7 +14,9 @@ export async function getStaticProps() {
     },
   }
 }
-
+export function canEditAndAddPosts() {
+  return process.env.NEXT_PUBLIC_EDIT_ADD_POSTS_ENABLED === "true"
+}
 export default function Home({ allPosts }) {
   return (
     <Layout home>
@@ -27,9 +29,11 @@ export default function Home({ allPosts }) {
           to build this site
         </p>
       </section>
-      <Link href="/posts/new">
-        <a>new post</a>
-      </Link>
+      {canEditAndAddPosts() && (
+        <Link href="/posts/new">
+          <a>new post</a>
+        </Link>
+      )}
       <h2 className={utilStyles.headingLg}>Blog</h2>
       {/* TODO change Blog -> "posts ordered newest/oldest first" 
         w/ 'newest/oldest' clickable so as to toggle with oldest*/}

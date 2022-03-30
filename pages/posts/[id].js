@@ -17,6 +17,7 @@ import {
 } from "../../lib/slate_editor"
 import { useRouter } from "next/router"
 import { isKeyHotkey } from "is-hotkey"
+import { canEditAndAddPosts } from "pages"
 
 export async function getStaticProps({ params }) {
   let post
@@ -68,6 +69,7 @@ const loadFromLocalStore = (post) => {
 
 const Post = ({ postProp }) => {
   // TODO increment views with react-visibility-sensor when backlink to home enters viewport
+  // TODO store views in postId->int map that can be updated with api call
   const [post, setPost] = useState(postProp)
   const [newPostId, setNewPostId] = useState(postProp.id)
   const [value, setValue] = useState(loadFromLocalStore(post))
@@ -167,12 +169,13 @@ const Post = ({ postProp }) => {
           {post.id !== "new" && (
             <span className={utilStyles.lightText}>{post.views} views</span>
           )}
-          <br />
-          <input
-            type="button"
-            value={inEditMode ? "save" : "edit"}
-            onClick={editButtonCallback}
-          />
+          {canEditAndAddPosts() && (
+            <input
+              type="button"
+              value={inEditMode ? "save" : "edit"}
+              onClick={editButtonCallback}
+            />
+          )}
         </div>
       </article>
       <Slate
